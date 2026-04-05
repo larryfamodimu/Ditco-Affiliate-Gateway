@@ -1,0 +1,252 @@
+{
+  "info": {
+    "_postman_id": "ditco-affiliate-gateway-v1",
+    "name": "Ditco Affiliate Gateway",
+    "description": "Complete API collection for the Ditco Affiliate Gateway System.\n\nBase URL: http://localhost:8080\n\nWorkflow:\n1. Run **Admin Login** — the test script auto-saves the JWT to {{jwt_token}}.\n2. Use **Create Affiliate** to register a new affiliate (fires notification microservice).\n3. Use **Get Affiliate** to fetch the landing page data.\n4. Use **Track Click** to record a click event.\n5. Use **Update Affiliate** to update contact info (JWT protected).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url",  "value": "http://localhost:8080", "type": "string" },
+    { "key": "jwt_token", "value": "",                      "type": "string" },
+    { "key": "slug",      "value": "acme-tech",             "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Admin Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.token) {",
+                  "    pm.collectionVariables.set('jwt_token', res.token);",
+                  "    console.log('JWT saved to collection variable jwt_token');",
+                  "}",
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Response has token', () => pm.expect(res.token).to.be.a('string'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/login",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "login"]
+            },
+            "description": "Authenticates as admin and returns a JWT.\nThe test script automatically saves it as {{jwt_token}}."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Affiliates",
+      "item": [
+        {
+          "name": "Create Affiliate (admin, JWT required)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.slug) {",
+                  "    pm.collectionVariables.set('slug', res.data.slug);",
+                  "}",
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Response has affiliate data', () => pm.expect(res.data).to.be.an('object'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"business_name\": \"Nova Digital Ltd\",\n  \"email\": \"contact@novadigital.ng\",\n  \"slug\": \"nova-digital\",\n  \"phone\": \"+234-800-123-4567\",\n  \"logo_url\": \"https://placehold.co/200x80?text=Nova+Digital\",\n  \"password\": \"nova123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/affiliate",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "affiliate"]
+            },
+            "description": "Creates a new affiliate. Triggers the Node.js notification microservice (watch the `ditco_notification` container logs)."
+          }
+        },
+        {
+          "name": "Get Affiliate by Slug",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Has affiliate data', () => pm.expect(res.data).to.be.an('object'));",
+                  "pm.test('Has products array', () => pm.expect(res.data.products).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/affiliate/{{slug}}",
+              "host": ["{{base_url}}"],
+              "path": ["affiliate", "{{slug}}"]
+            },
+            "description": "Fetches an affiliate's business info and associated products. Used to populate the landing page."
+          }
+        },
+        {
+          "name": "Update Affiliate Contact Info (JWT required)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has updated data', () => pm.expect(pm.response.json().data).to.be.an('object'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+234-800-999-0000\",\n  \"business_name\": \"Nova Digital Ltd (Updated)\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/affiliate/{{slug}}",
+              "host": ["{{base_url}}"],
+              "path": ["affiliate", "{{slug}}"]
+            },
+            "description": "Updates an affiliate's contact information. Requires a valid JWT in the Authorization header."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Click Tracking",
+      "item": [
+        {
+          "name": "Track Click",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.test('Has click_id', () => pm.expect(res.click_id).to.exist);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"affiliate_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/click-track",
+              "host": ["{{base_url}}"],
+              "path": ["click-track"]
+            },
+            "description": "Records a click event. Rate-limited to 10 requests per 60 seconds per IP. Returns 429 when the limit is exceeded."
+          }
+        },
+        {
+          "name": "Track Click — Rate Limit Test (spam 11 times)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Run this request > 10 times in quick succession to trigger 429",
+                  "pm.test('Response is 201 or 429', () => {",
+                  "    pm.expect([201, 429]).to.include(pm.response.code);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"affiliate_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/click-track",
+              "host": ["{{base_url}}"],
+              "path": ["click-track"]
+            },
+            "description": "Send this request more than 10 times within 60 seconds to observe the 429 Too Many Requests rate-limit response."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notification Service",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Service is ok', () => pm.expect(pm.response.json().status).to.eql('ok'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/health",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["health"]
+            },
+            "description": "Verifies the Node.js notification microservice is running."
+          }
+        }
+      ]
+    }
+  ]
+}
