@@ -254,10 +254,17 @@ if ($method === 'POST' && $uri === '/click-track') {
     ]);
     $log = $ins->fetch();
 
+    // Remaining requests before the rate limit kicks in
+    $remaining = max(0, $limit - $count - 1);
+    header('X-RateLimit-Limit: '     . $limit);
+    header('X-RateLimit-Remaining: ' . $remaining);
+    header('X-RateLimit-Window: '    . $window);
+
     Helpers::respond(201, [
-        'message'    => 'Click recorded.',
-        'click_id'   => $log['id'],
-        'timestamp'  => $log['timestamp'],
+        'message'         => 'Click recorded.',
+        'click_id'        => $log['id'],
+        'timestamp'       => $log['timestamp'],
+        'rate_limit'      => ['limit' => $limit, 'remaining' => $remaining, 'window_seconds' => $window],
     ]);
 }
 
